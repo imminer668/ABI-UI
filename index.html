@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>以太坊合约ABI调用界面</title>
+    <!-- 引入Ethers.js 5.7 (CDN) -->
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        /* 全局样式 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            background-color: #f3f4f6;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        
+        h1 {
+            font-size: 1.875rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        h3 {
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* 表单元素 */
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+        }
+        
+        textarea {
+            height: 10rem;
+            resize: vertical;
+        }
+        
+        /* 网格布局 */
+        .grid {
+            display: grid;
+            grid-gap: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            .grid-cols-2 {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-green {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .btn-green:hover {
+            background-color: #059669;
+        }
+        
+        .btn-amber {
+            background-color: #f59e0b;
+            color: white;
+        }
+        
+        .btn-amber:hover {
+            background-color: #d97706;
+        }
+        
+        .btn-gray {
+            background-color: #6b7280;
+            color: white;
+        }
+        
+        .btn-small {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        /* 间距与布局 */
+        .mb-1 {
+            margin-bottom: 0.25rem;
+        }
+        
+        .mb-2 {
+            margin-bottom: 0.5rem;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.75rem;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1rem;
+        }
+        
+        .mt-4 {
+            margin-top: 1rem;
+        }
+        
+        .ml-2 {
+            margin-left: 0.5rem;
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .flex-end {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        /* 标签与徽章 */
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+        
+        .badge-blue {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .badge-amber {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        /* 选项卡按钮 */
+        .tab-container {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+        
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            background-color: #e5e7eb;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .tab-btn:first-child {
+            border-top-left-radius: 0.375rem;
+            border-bottom-left-radius: 0.375rem;
+        }
+        
+        .tab-btn:last-child {
+            border-top-right-radius: 0.375rem;
+            border-bottom-right-radius: 0.375rem;
+        }
+        
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        /* 函数卡片样式 */
+        .function-card {
+            position: relative;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #eee;
+        }
+        
+        .function-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+        
+        .function-card small {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .param-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        
+        .param-input:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        
+        /* 结果区域 */
+        .result-output {
+            background-color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        
+        /* 辅助类 */
+        .hidden {
+            display: none;
+        }
+        
+        .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+        
+        .text-gray {
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>以太坊合约ABI调用界面</h1>
+        
+        <!-- 网络选择 -->
+        <div class="card">
+            <h2>网络设置</h2>
+            <div class="grid grid-cols-2">
+                <div>
+                    <label>选择网络</label>
+                    <select id="network-select">
+                        <option value="1">以太坊主网</option>
+                        <option value="11155111">Sepolia测试网</option>
+                        <option value="custom">自定义RPC</option>
+                    </select>
+                </div>
+                <div id="custom-rpc-container" class="hidden">
+                    <label>自定义RPC URL</label>
+                    <input type="text" id="custom-rpc" placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY">
+                </div>
+            </div>
+            <div class="mt-4">
+                <button id="connect-wallet" class="btn btn-primary">
+                    连接钱包
+                </button>
+                <span id="wallet-status" class="ml-2">未连接</span>
+            </div>
+        </div>
+
+        <!-- 合约信息输入 -->
+        <div class="card">
+            <h2>合约信息</h2>
+            <div class="mb-4">
+                <label>合约地址</label>
+                <input type="text" id="contract-address" placeholder="0x...">
+            </div>
+            <div class="mb-4">
+                <label>ABI</label>
+                <textarea id="contract-abi" placeholder='[{"inputs": [],"name": "myFunction","outputs": [{"internalType": "uint256","name": "","type": "uint256"}],"stateMutability": "view","type": "function"}]'></textarea>
+            </div>
+            <button id="load-contract" class="btn btn-green">
+                加载合约
+            </button>
+        </div>
+
+        <!-- 函数列表 -->
+        <div id="functions-container" class="hidden">
+            <h2>合约函数</h2>
+            <div class="tab-container">
+                <button id="show-read-btn" class="tab-btn">只读函数</button>
+                <button id="show-write-btn" class="tab-btn">写入函数</button>
+            </div>
+            <div id="functions-list" class="space-y-4"></div>
+        </div>
+
+        <!-- 执行结果 -->
+        <div id="result-container" class="hidden card">
+            <h2>执行结果</h2>
+            <pre id="result-output" class="result-output"></pre>
+        </div>
+    </div>
+
+    <script>
+        // 确保ethers已加载
+        window.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.ethers === 'undefined') {
+                console.error('Ethers.js未加载，尝试重新加载...');
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js'; // 使用备用CDN
+                script.onload = initialize;
+                script.onerror = function() {
+                    // 如果第二个CDN也失败，尝试第三个
+                    console.error('备用CDN加载失败，尝试另一个来源...');
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js';
+                    fallbackScript.onload = initialize;
+                    fallbackScript.onerror = function() {
+                        alert('无法加载ethers.js库，请检查网络连接或使用其他浏览器重试');
+                    };
+                    document.head.appendChild(fallbackScript);
+                };
+                document.head.appendChild(script);
+            } else {
+                initialize();
+            }
+        });
+
+        // 全局变量
+        let provider;
+        let signer;
+        let contract;
+        let contractFunctions = {
+            read: [],
+            write: []
+        };
+
+        // DOM元素
+        const networkSelect = document.getElementById('network-select');
+        const customRpcContainer = document.getElementById('custom-rpc-container');
+        const customRpcInput = document.getElementById('custom-rpc');
+        const connectWalletBtn = document.getElementById('connect-wallet');
+        const walletStatus = document.getElementById('wallet-status');
+        const contractAddressInput = document.getElementById('contract-address');
+        const contractAbiInput = document.getElementById('contract-abi');
+        const loadContractBtn = document.getElementById('load-contract');
+        const functionsContainer = document.getElementById('functions-container');
+        const functionsListDiv = document.getElementById('functions-list');
+        const showReadBtn = document.getElementById('show-read-btn');
+        const showWriteBtn = document.getElementById('show-write-btn');
+        const resultContainer = document.getElementById('result-container');
+        const resultOutput = document.getElementById('result-output');
+
+        // 初始化
+        function initialize() {
+            // 网络选择事件
+            networkSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customRpcContainer.classList.remove('hidden');
+                } else {
+                    customRpcContainer.classList.add('hidden');
+                }
+                setupProvider();
+            });
+
+            // 连接钱包按钮
+            connectWalletBtn.addEventListener('click', connectWallet);
+
+            // 加载合约按钮
+            loadContractBtn.addEventListener('click', loadContract);
+
+            // 函数展示切换
+            showReadBtn.addEventListener('click', () => showFunctions('read'));
+            showWriteBtn.addEventListener('click', () => showFunctions('write'));
+
+            // 添加测试按钮
+            const testBtn = document.createElement('button');
+            testBtn.className = 'btn btn-primary ml-2';
+            testBtn.textContent = '测试连接';
+            testBtn.addEventListener('click', testConnection);
+            document.querySelector('.card').appendChild(testBtn);
+            
+            // 初始化Provider
+            setupProvider();
+        }
+
+        // 设置Provider
+        function setupProvider() {
+            const networkId = networkSelect.value;
+            
+            try {
+                if (networkId === 'custom' && customRpcInput.value) {
+                    provider = new ethers.providers.JsonRpcProvider(customRpcInput.value);
+                } else {
+                    // 使用默认网络
+                    if (window.ethereum) {
+                        provider = new ethers.providers.Web3Provider(window.ethereum);
+                    } else {
+                        const networks = {
+                            '1': 'https://eth-mainnet.public.blastapi.io',
+                            '11155111': 'https://eth-sepolia.public.blastapi.io'
+                        };
+                        provider = new ethers.providers.JsonRpcProvider(networks[networkId]);
+                    }
+                }
+                console.log('Provider已设置');
+            } catch (error) {
+                console.error('设置Provider失败:', error);
+                alert('设置网络连接失败: ' + error.message);
+            }
+        }
+
+        // 连接钱包
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    const address = await signer.getAddress();
+                    walletStatus.textContent = `已连接: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+                    connectWalletBtn.textContent = '已连接';
+                    connectWalletBtn.classList.remove('btn-primary');
+                    connectWalletBtn.classList.add('btn-gray');
+                } catch (error) {
+                    console.error('连接钱包失败:', error);
+                    walletStatus.textContent = '连接失败';
+                }
+            } else {
+                walletStatus.textContent = '请安装MetaMask';
+            }
+        }
+
+        // 加载合约 - 增加验证和调试
+        function loadContract() {
+            const contractAddress = contractAddressInput.value.trim();
+            const abiText = contractAbiInput.value.trim();
+            
+            if (!contractAddress || !abiText) {
+                alert('请输入合约地址和ABI');
+                return;
+            }
+
+            // 验证合约地址格式
+            if (!contractAddress.startsWith('0x') || contractAddress.length !== 42) {
+                alert('合约地址格式不正确，应为0x开头的42位十六进制字符');
+                return;
+            }
+
+            try {
+                console.log("解析ABI...");
+                let abi;
+                try {
+                    abi = JSON.parse(abiText);
+                } catch (parseError) {
+                    alert('ABI JSON解析失败: ' + parseError.message);
+                    return;
+                }
+                
+                console.log("ABI解析成功, 条目数:", abi.length);
+                
+                if (!Array.isArray(abi) || abi.length === 0) {
+                    alert('ABI格式不正确或为空');
+                    return;
+                }
+                
+                // 使用签名者或提供者创建合约实例
+                if (!provider) {
+                    alert('未连接网络，请先选择网络或连接钱包');
+                    return;
+                }
+                
+                console.log("创建合约实例...");
+                console.log("使用地址:", contractAddress);
+                console.log("使用签名者:", signer ? "是" : "否");
+                
+                if (signer) {
+                    contract = new ethers.Contract(contractAddress, abi, signer);
+                } else {
+                    contract = new ethers.Contract(contractAddress, abi, provider);
+                }
+                
+                console.log("合约实例创建成功");
+                
+                // 整理合约函数
+                parseContractFunctions(abi);
+
+                // 显示函数列表
+                functionsContainer.classList.remove('hidden');
+                showFunctions('read');
+                
+                alert('合约加载成功');
+            } catch (error) {
+                console.error('加载合约失败:', error);
+                alert('加载合约失败: ' + error.message);
+            }
+        }
+
+        // 解析合约函数 - 修复ABI解析问题
+        function parseContractFunctions(abi) {
+            console.log("开始解析ABI:", abi);
+            
+            // 重置函数集合
+            contractFunctions = {
+                read: [],
+                write: []
+            };
+
+            try {
+                if (!Array.isArray(abi)) {
+                    console.error("ABI不是数组格式");
+                    return;
+                }
+
+                abi.forEach((item, index) => {
+                    console.log(`解析ABI项 #${index}:`, item);
+                    
+                    // 检查是否为有效项目
+                    if (!item || typeof item !== 'object') {
+                        console.warn(`跳过无效ABI项 #${index}`);
+                        return;
+                    }
+                    
+                    // 主要处理逻辑
+                    if (item.type === 'function') {
+                        // 标准函数
+                        const functionType = item.stateMutability === 'view' || item.stateMutability === 'pure' ? 'read' : 'write';
+                        contractFunctions[functionType].push(item);
+                        console.log(`添加为${functionType}函数:`, item.name);
+                    } else if (item.name && (item.type === undefined || item.type === null)) {
+                        // 旧版ABI格式可能没有type字段
+                        // 检查constant字段或输出来确定是读还是写
+                        if (item.constant === true || (item.outputs && item.outputs.length > 0)) {
+                            console.log(`检测到旧格式只读函数:`, item.name);
+                            contractFunctions.read.push({
+                                ...item,
+                                type: 'function',
+                                stateMutability: 'view'
+                            });
+                        } else {
+                            console.log(`检测到旧格式写入函数:`, item.name);
+                            contractFunctions.write.push({
+                                ...item,
+                                type: 'function',
+                                stateMutability: 'nonpayable'
+                            });
+                        }
+                    } else if (item.type === 'error') {
+                        console.log(`跳过错误定义:`, item.name);
+                    } else if (item.type === 'event') {
+                        console.log(`跳过事件定义:`, item.name);
+                    } else if (item.type === 'constructor') {
+                        console.log(`跳过构造函数定义`);
+                    } else {
+                        console.log(`未知ABI项类型:`, item);
+                        
+                        // 尝试根据特征识别
+                        if (item.name) {
+                            // 如果有名称，可能是变量或常量
+                            console.log(`尝试将 ${item.name} 视为常量/变量`);
+                            contractFunctions.read.push({
+                                ...item,
+                                type: 'function',
+                                stateMutability: 'view',
+                                isConstant: true,
+                                inputs: item.inputs || []
+                            });
+                        }
+                    }
+                });
+                
+                console.log("解析完成. 读函数:", contractFunctions.read.length, "写函数:", contractFunctions.write.length);
+                
+                // 如果没有找到任何函数，可能是ABI格式问题
+                if (contractFunctions.read.length === 0 && contractFunctions.write.length === 0) {
+                    console.warn("未找到任何函数，请检查ABI格式");
+                }
+            } catch (error) {
+                console.error("解析ABI时发生错误:", error);
+            }
+        }
+
+        // 展示函数列表 - 修复UI显示问题
+        function showFunctions(type) {
+            if (type === 'read') {
+                showReadBtn.classList.add('active');
+                showWriteBtn.classList.remove('active');
+            } else {
+                showWriteBtn.classList.add('active');
+                showReadBtn.classList.remove('active');
+            }
+
+            // 清空函数列表
+            functionsListDiv.innerHTML = '';
+            
+            console.log(`准备显示${type}类型函数，数量:`, contractFunctions[type].length);
+
+            if (contractFunctions[type].length === 0) {
+                functionsListDiv.innerHTML = `<p class="text-gray">没有${type === 'read' ? '只读' : '写入'}函数</p>`;
+                return;
+            }
+
+            // 创建函数列表
+            contractFunctions[type].forEach((func, idx) => {
+                console.log(`创建函数UI #${idx}:`, func.name);
+                
+                const functionCard = document.createElement('div');
+                functionCard.className = 'function-card';
+                
+                // 添加函数ID用于调试
+                functionCard.dataset.functionId = idx;
+                
+                // 函数标题区域
+                const header = document.createElement('div');
+                header.className = 'flex-between mb-3';
+                
+                // 确保函数名称显示
+                const title = document.createElement('h3');
+                title.textContent = func.name || `未命名函数 #${idx}`;
+                title.style.fontWeight = 'bold'; // 增加字体粗细确保可见
+                
+                // 创建badge
+                const badge = document.createElement('span');
+                badge.className = type === 'read' ? 'badge badge-blue' : 'badge badge-amber';
+                badge.textContent = type === 'read' ? '只读' : '写入';
+                
+                // 构建并添加标题行
+                header.appendChild(title);
+                header.appendChild(badge);
+                functionCard.appendChild(header);
+                
+                // 添加函数描述信息
+                const funcInfo = document.createElement('div');
+                funcInfo.className = 'mb-2';
+                funcInfo.innerHTML = `
+                    <small style="color:#666;">
+                        ${func.isConstant ? '常量' : '函数'} | 
+                        参数: ${func.inputs ? func.inputs.length : 0} | 
+                        状态可变性: ${func.stateMutability || '未知'}
+                    </small>
+                `;
+                functionCard.appendChild(funcInfo);
+                
+                // 函数输入参数
+                if (func.inputs && func.inputs.length > 0) {
+                    const inputsContainer = document.createElement('div');
+                    inputsContainer.className = 'mb-3';
+                    inputsContainer.style.borderTop = '1px solid #eee';
+                    inputsContainer.style.paddingTop = '10px';
+                    inputsContainer.style.marginTop = '10px';
+                    
+                    // 添加参数标题
+                    const paramsTitle = document.createElement('div');
+                    paramsTitle.textContent = '参数';
+                    paramsTitle.style.fontWeight = 'bold';
+                    paramsTitle.style.marginBottom = '8px';
+                    inputsContainer.appendChild(paramsTitle);
+                    
+                    func.inputs.forEach((input, index) => {
+                        const inputGroup = document.createElement('div');
+                        inputGroup.className = 'mb-2';
+                        
+                        // 确保参数标签显示
+                        const label = document.createElement('label');
+                        label.className = 'mb-1';
+                        // 使用参数名称，如果没有则使用索引
+                        const paramName = input.name || `参数 ${index + 1}`;
+                        label.textContent = `${paramName} (${input.type})`;
+                        label.style.display = 'block';
+                        
+                        // 输入字段
+                        const inputField = document.createElement('input');
+                        inputField.type = 'text';
+                        inputField.placeholder = `输入${input.type}类型值`;
+                        inputField.dataset.type = input.type;
+                        inputField.dataset.index = index;
+                        inputField.dataset.functionId = idx;
+                        inputField.className = 'param-input';
+                        
+                        inputGroup.appendChild(label);
+                        inputGroup.appendChild(inputField);
+                        inputsContainer.appendChild(inputGroup);
+                    });
+                    
+                    functionCard.appendChild(inputsContainer);
+                }
+                
+                // 调用按钮
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex-end';
+                buttonContainer.style.marginTop = '10px';
+                
+                const button = document.createElement('button');
+                button.className = type === 'read' ? 'btn btn-primary btn-small' : 'btn btn-amber btn-small';
+                button.textContent = type === 'read' ? '调用' : '发送交易';
+                button.dataset.functionId = idx;
+                button.addEventListener('click', () => {
+                    console.log(`点击调用函数: ${func.name}`);
+                    callFunction(func, type);
+                });
+                
+                buttonContainer.appendChild(button);
+                functionCard.appendChild(buttonContainer);
+                
+                // 添加到列表
+                functionsListDiv.appendChild(functionCard);
+                console.log(`函数UI创建完成: ${func.name}`);
+            });
+        }
+
+        // 调用合约函数 - 修复参数收集问题
+        async function callFunction(func, type) {
+            resultContainer.classList.remove('hidden');
+            resultOutput.textContent = '准备执行...';
+
+            try {
+                console.log(`准备调用函数: ${func.name}`, func);
+                
+                if (!contract) {
+                    throw new Error("合约实例不存在，请先加载合约");
+                }
+                
+                // 验证函数是否存在于合约中
+                if (typeof contract[func.name] !== 'function') {
+                    throw new Error(`合约中不存在函数: ${func.name}`);
+                }
+                
+                // 获取函数所需参数数量
+                const requiredParamCount = func.inputs ? func.inputs.length : 0;
+                console.log(`函数需要${requiredParamCount}个参数`);
+                
+                // 仅收集当前函数相关的参数
+                const functionId = Array.from(document.querySelectorAll(`.function-card`))
+                    .findIndex(card => card.querySelector('h3').textContent === func.name);
+                
+                console.log(`该函数在UI中的索引: ${functionId}`);
+                
+                // 查找特定函数的输入框
+                const inputs = [];
+                if (requiredParamCount > 0) {
+                    // 查找绑定到此函数的输入框
+                    const functionCard = document.querySelector(`.function-card[data-function-id="${functionId}"]`);
+                    if (functionCard) {
+                        const inputFields = functionCard.querySelectorAll('input.param-input');
+                        console.log(`找到${inputFields.length}个与此函数相关的输入框`);
+                        
+                        // 收集输入值
+                        inputFields.forEach((input, idx) => {
+                            if (idx < requiredParamCount) {
+                                const value = input.value.trim();
+                                const type = input.dataset.type;
+                                console.log(`处理参数 #${idx}: 类型=${type}, 值=${value}`);
+                                
+                                // 参数类型处理
+                                try {
+                                    if (type.includes('int')) {
+                                        // 处理整数类型
+                                        inputs.push(value === '' ? 0 : value);
+                                    } else if (type === 'bool') {
+                                        // 处理布尔类型
+                                        inputs.push(value.toLowerCase() === 'true');
+                                    } else if (type.includes('[]')) {
+                                        // 处理数组类型
+                                        inputs.push(value ? value.split(',').map(v => v.trim()) : []);
+                                    } else if (type === 'address') {
+                                        // 处理地址类型
+                                        if (value && !value.startsWith('0x')) {
+                                            console.warn('地址应该以0x开头，自动添加前缀');
+                                            inputs.push('0x' + value);
+                                        } else {
+                                            inputs.push(value);
+                                        }
+                                    } else {
+                                        // 其他类型直接使用
+                                        inputs.push(value);
+                                    }
+                                } catch (paramError) {
+                                    console.error(`参数#${idx}处理错误:`, paramError);
+                                    throw new Error(`参数 #${idx} (${type}) 格式错误: ${paramError.message}`);
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                console.log(`最终使用的参数:`, inputs);
+                resultOutput.textContent = '执行中...';
+
+                // 调用合约函数
+                let result;
+                if (type === 'read') {
+                    // 读函数: 针对参数数量做处理
+                    if (requiredParamCount === 0) {
+                        console.log(`调用无参数函数: ${func.name}()`);
+                        result = await contract[func.name]();
+                    } else {
+                        console.log(`调用有参数函数: ${func.name}(${inputs.join(', ')})`);
+                        result = await contract[func.name](...inputs);
+                    }
+                } else {
+                    // 写函数: 发送交易
+                    const tx = await contract[func.name](...inputs);
+                    resultOutput.textContent = `交易已提交，哈希: ${tx.hash}\n等待确认...`;
+                    const receipt = await tx.wait();
+                    result = receipt;
+                }
+
+                // 显示结果
+                console.log(`函数调用成功，结果:`, result);
+                formatAndDisplayResult(result);
+            } catch (error) {
+                console.error('调用函数失败:', error);
+                resultOutput.textContent = `错误: ${error.message || error}\n\n详细信息:\n${error.stack || '无堆栈信息'}`;
+            }
+        }
+
+        // 格式化并显示结果
+        function formatAndDisplayResult(result) {
+            try {
+                if (ethers.BigNumber.isBigNumber(result)) {
+                    resultOutput.textContent = result.toString();
+                } else if (Array.isArray(result)) {
+                    const formattedResult = result.map(item => {
+                        if (ethers.BigNumber.isBigNumber(item)) {
+                            return item.toString();
+                        }
+                        return item;
+                    });
+                    resultOutput.textContent = JSON.stringify(formattedResult, null, 2);
+                } else if (typeof result === 'object' && result !== null) {
+                    resultOutput.textContent = JSON.stringify(result, (key, value) => {
+                        if (value && ethers.BigNumber.isBigNumber(value)) {
+                            return value.toString();
+                        }
+                        return value;
+                    }, 2);
+                } else {
+                    resultOutput.textContent = result !== undefined ? result.toString() : 'undefined';
+                }
+            } catch (error) {
+                console.error('格式化结果失败:', error);
+                resultOutput.textContent = `结果格式化错误: ${error.message}\n原始结果: ${result}`;
+            }
+        }
+
+        // 测试连接函数
+        async function testConnection() {
+            try {
+                if (!provider) {
+                    alert('未设置网络提供者');
+                    return;
+                }
+                
+                console.log("测试网络连接...");
+                const network = await provider.getNetwork();
+                const blockNumber = await provider.getBlockNumber();
+                
+                alert(`连接成功!\n网络: ${network.name} (chainId: ${network.chainId})\n当前区块: ${blockNumber}`);
+            } catch (error) {
+                console.error("连接测试失败:", error);
+                alert(`连接测试失败: ${error.message}`);
+            }
+        }
+
+        // 初始化应用
+        // document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
