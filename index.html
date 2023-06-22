@@ -280,6 +280,69 @@
         .text-gray {
             color: #6b7280;
         }
+
+        .function-result {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .function-result.hidden {
+            display: none;
+        }
+
+        .loading-animation {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 0.375rem;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            border-left-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: #3b82f6;
+            font-size: 0.875rem;
+        }
+
+        .result-content {
+            background: #f8fafc;
+            border-radius: 0.375rem;
+            padding: 1rem;
+        }
+
+        .result-content.error {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .result-header {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+
+        .result-data {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -295,7 +358,7 @@
                     <select id="network-select">
                         <option value="1">以太坊主网</option>
                         <option value="11155111">Sepolia测试网</option>
-                        <option value="custom">自定义RPC</option>
+                        <option value="137">Polygon Mainnet</option>
                     </select>
                 </div>
                 <div id="custom-rpc-container" class="hidden">
@@ -649,8 +712,6 @@
                 
                 const functionCard = document.createElement('div');
                 functionCard.className = 'function-card';
-                
-                // 添加函数ID用于调试
                 functionCard.dataset.functionId = idx;
                 
                 // 函数标题区域
@@ -728,6 +789,12 @@
                     functionCard.appendChild(inputsContainer);
                 }
                 
+                // 添加该函数专属的结果显示区域
+                const resultArea = document.createElement('div');
+                resultArea.className = 'function-result hidden';
+                resultArea.id = `result-${func.name}-${idx}`;
+                functionCard.appendChild(resultArea);
+                
                 // 调用按钮
                 const buttonContainer = document.createElement('div');
                 buttonContainer.className = 'flex-end';
@@ -749,140 +816,96 @@
                 functionsListDiv.appendChild(functionCard);
                 console.log(`函数UI创建完成: ${func.name}`);
             });
+
+            // 移除全局结果容器的使用
+            if (resultContainer) {
+                resultContainer.classList.add('hidden');
+            }
         }
 
         // 调用合约函数 - 修复参数收集问题
         async function callFunction(func, type) {
-            resultContainer.classList.remove('hidden');
-            resultOutput.textContent = '准备执行...';
+            const functionId = Array.from(document.querySelectorAll('.function-card'))
+                .findIndex(card => card.querySelector('h3').textContent === func.name);
+            
+            const functionCard = document.querySelector(`.function-card[data-function-id="${functionId}"]`);
+            const resultArea = functionCard.querySelector('.function-result');
+            const button = functionCard.querySelector('button');
+
+            // 显示加载动画
+            resultArea.innerHTML = `
+                <div class="loading-animation">
+                    <div class="spinner"></div>
+                    <span class="loading-text">请求中...</span>
+                </div>
+            `;
+            resultArea.classList.remove('hidden');
 
             try {
-                console.log(`准备调用函数: ${func.name}`, func);
-                
-                if (!contract) {
-                    throw new Error("合约实例不存在，请先加载合约");
-                }
-                
-                // 验证函数是否存在于合约中
-                if (typeof contract[func.name] !== 'function') {
-                    throw new Error(`合约中不存在函数: ${func.name}`);
-                }
-                
-                // 获取函数所需参数数量
-                const requiredParamCount = func.inputs ? func.inputs.length : 0;
-                console.log(`函数需要${requiredParamCount}个参数`);
-                
-                // 仅收集当前函数相关的参数
-                const functionId = Array.from(document.querySelectorAll(`.function-card`))
-                    .findIndex(card => card.querySelector('h3').textContent === func.name);
-                
-                console.log(`该函数在UI中的索引: ${functionId}`);
-                
-                // 查找特定函数的输入框
-                const inputs = [];
-                if (requiredParamCount > 0) {
-                    // 查找绑定到此函数的输入框
-                    const functionCard = document.querySelector(`.function-card[data-function-id="${functionId}"]`);
-                    if (functionCard) {
-                        const inputFields = functionCard.querySelectorAll('input.param-input');
-                        console.log(`找到${inputFields.length}个与此函数相关的输入框`);
-                        
-                        // 收集输入值
-                        inputFields.forEach((input, idx) => {
-                            if (idx < requiredParamCount) {
-                                const value = input.value.trim();
-                                const type = input.dataset.type;
-                                console.log(`处理参数 #${idx}: 类型=${type}, 值=${value}`);
-                                
-                                // 参数类型处理
-                                try {
-                                    if (type.includes('int')) {
-                                        // 处理整数类型
-                                        inputs.push(value === '' ? 0 : value);
-                                    } else if (type === 'bool') {
-                                        // 处理布尔类型
-                                        inputs.push(value.toLowerCase() === 'true');
-                                    } else if (type.includes('[]')) {
-                                        // 处理数组类型
-                                        inputs.push(value ? value.split(',').map(v => v.trim()) : []);
-                                    } else if (type === 'address') {
-                                        // 处理地址类型
-                                        if (value && !value.startsWith('0x')) {
-                                            console.warn('地址应该以0x开头，自动添加前缀');
-                                            inputs.push('0x' + value);
-                                        } else {
-                                            inputs.push(value);
-                                        }
-                                    } else {
-                                        // 其他类型直接使用
-                                        inputs.push(value);
-                                    }
-                                } catch (paramError) {
-                                    console.error(`参数#${idx}处理错误:`, paramError);
-                                    throw new Error(`参数 #${idx} (${type}) 格式错误: ${paramError.message}`);
-                                }
-                            }
-                        });
-                    }
-                }
-                
-                console.log(`最终使用的参数:`, inputs);
-                resultOutput.textContent = '执行中...';
+                // 禁用按钮
+                button.disabled = true;
+                button.style.opacity = '0.7';
 
-                // 调用合约函数
+                // 收集参数并调用合约
+                const inputs = [];
+                if (func.inputs && func.inputs.length > 0) {
+                    const inputFields = functionCard.querySelectorAll('input.param-input');
+                    inputFields.forEach(input => {
+                        inputs.push(input.value.trim());
+                    });
+                }
+
                 let result;
                 if (type === 'read') {
-                    // 读函数: 针对参数数量做处理
-                    if (requiredParamCount === 0) {
-                        console.log(`调用无参数函数: ${func.name}()`);
-                        result = await contract[func.name]();
-                    } else {
-                        console.log(`调用有参数函数: ${func.name}(${inputs.join(', ')})`);
-                        result = await contract[func.name](...inputs);
-                    }
+                    result = await contract[func.name](...inputs);
                 } else {
-                    // 写函数: 发送交易
                     const tx = await contract[func.name](...inputs);
-                    resultOutput.textContent = `交易已提交，哈希: ${tx.hash}\n等待确认...`;
-                    const receipt = await tx.wait();
-                    result = receipt;
+                    result = await tx.wait();
                 }
 
                 // 显示结果
-                console.log(`函数调用成功，结果:`, result);
-                formatAndDisplayResult(result);
+                resultArea.innerHTML = `
+                    <div class="result-content">
+                        <div class="result-header">执行结果:</div>
+                        <pre class="result-data">${formatResult(result)}</pre>
+                    </div>
+                `;
+
             } catch (error) {
                 console.error('调用函数失败:', error);
-                resultOutput.textContent = `错误: ${error.message || error}\n\n详细信息:\n${error.stack || '无堆栈信息'}`;
+                resultArea.innerHTML = `
+                    <div class="result-content error">
+                        <div class="result-header">错误信息:</div>
+                        <pre class="result-data">${error.message}</pre>
+                    </div>
+                `;
+            } finally {
+                // 恢复按钮状态
+                button.disabled = false;
+                button.style.opacity = '1';
             }
         }
 
         // 格式化并显示结果
-        function formatAndDisplayResult(result) {
+        function formatResult(result) {
             try {
                 if (ethers.BigNumber.isBigNumber(result)) {
-                    resultOutput.textContent = result.toString();
+                    return result.toString();
                 } else if (Array.isArray(result)) {
-                    const formattedResult = result.map(item => {
-                        if (ethers.BigNumber.isBigNumber(item)) {
-                            return item.toString();
-                        }
-                        return item;
-                    });
-                    resultOutput.textContent = JSON.stringify(formattedResult, null, 2);
+                    return JSON.stringify(result, null, 2);
                 } else if (typeof result === 'object' && result !== null) {
-                    resultOutput.textContent = JSON.stringify(result, (key, value) => {
+                    return JSON.stringify(result, (key, value) => {
                         if (value && ethers.BigNumber.isBigNumber(value)) {
                             return value.toString();
                         }
                         return value;
                     }, 2);
                 } else {
-                    resultOutput.textContent = result !== undefined ? result.toString() : 'undefined';
+                    return result !== undefined ? result.toString() : 'undefined';
                 }
             } catch (error) {
                 console.error('格式化结果失败:', error);
-                resultOutput.textContent = `结果格式化错误: ${error.message}\n原始结果: ${result}`;
+                return `结果格式化错误: ${error.message}\n原始结果: ${result}`;
             }
         }
 
