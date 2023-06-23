@@ -343,6 +343,42 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* 按钮组样式 */
+        .button-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .button-group .btn {
+            flex-shrink: 0;
+        }
+
+        .button-group #wallet-status {
+            margin-left: 0.5rem;
+            color: #6b7280;
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 640px) {
+            .button-group {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+
+            .button-group .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+
+            .button-group #wallet-status {
+                margin-left: 0;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -358,7 +394,7 @@
                     <select id="network-select">
                         <option value="1">以太坊主网</option>
                         <option value="11155111">Sepolia测试网</option>
-                        <option value="137">Polygon Mainnet</option>
+                        
                     </select>
                 </div>
                 <div id="custom-rpc-container" class="hidden">
@@ -366,11 +402,11 @@
                     <input type="text" id="custom-rpc" placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY">
                 </div>
             </div>
-            <div class="mt-4">
+            <div class="button-group mt-4">
                 <button id="connect-wallet" class="btn btn-primary">
                     连接钱包
                 </button>
-                <span id="wallet-status" class="ml-2">未连接</span>
+                <span id="wallet-status" class="button-group #wallet-status">未连接</span>
             </div>
         </div>
 
@@ -479,12 +515,28 @@
             showReadBtn.addEventListener('click', () => showFunctions('read'));
             showWriteBtn.addEventListener('click', () => showFunctions('write'));
 
-            // 添加测试按钮
+            // 修改测试按钮的添加方式
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'button-group mt-4';
+            
+            // 将现有的连接钱包按钮移动到新容器中
+            const existingWalletBtn = document.getElementById('connect-wallet');
+            const existingWalletStatus = document.getElementById('wallet-status');
+            
+            // 创建测试连接按钮
             const testBtn = document.createElement('button');
-            testBtn.className = 'btn btn-primary ml-2';
+            testBtn.className = 'btn btn-primary';
             testBtn.textContent = '测试连接';
             testBtn.addEventListener('click', testConnection);
-            document.querySelector('.card').appendChild(testBtn);
+            
+            // 将所有元素添加到新容器中
+            buttonContainer.appendChild(existingWalletBtn);
+            buttonContainer.appendChild(testBtn);
+            buttonContainer.appendChild(existingWalletStatus);
+            
+            // 替换原有的按钮容器
+            const oldContainer = document.querySelector('.mt-4');
+            oldContainer.parentNode.replaceChild(buttonContainer, oldContainer);
             
             // 初始化Provider
             setupProvider();
