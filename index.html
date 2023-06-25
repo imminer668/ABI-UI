@@ -394,7 +394,6 @@
                     <select id="network-select">
                         <option value="1">以太坊主网</option>
                         <option value="11155111">Sepolia测试网</option>
-                        
                     </select>
                 </div>
                 <div id="custom-rpc-container" class="hidden">
@@ -898,20 +897,138 @@
                 button.disabled = true;
                 button.style.opacity = '0.7';
 
-                // 收集参数并调用合约
+                // 收集并转换参数
                 const inputs = [];
                 if (func.inputs && func.inputs.length > 0) {
                     const inputFields = functionCard.querySelectorAll('input.param-input');
-                    inputFields.forEach(input => {
-                        inputs.push(input.value.trim());
-                    });
+                    
+                    for (let i = 0; i < func.inputs.length; i++) {
+                        const input = inputFields[i];
+                        const paramType = func.inputs[i].type;
+                        let value = input.value.trim();
+
+                        // 参数类型转换
+                        try {
+                            if (value === '') {
+                                throw new Error(`参数 ${i + 1} 不能为空`);
+                            }
+
+                            let convertedValue;
+                            // 处理不同的参数类型
+                            if (paramType.includes('int')) {
+                                // 处理整数类型 (uint256, int256, uint8 等)
+                                if (value.includes('.')) {
+                                    throw new Error(`参数 ${i + 1} 必须是整数`);
+                                }
+                                if (paramType.startsWith('uint')) {
+                                    if (value.startsWith('-')) {
+                                        throw new Error(`参数 ${i + 1} 必须是非负数`);
+                                    }
+                                    convertedValue = ethers.BigNumber.from(value);
+                                } else {
+                                    convertedValue = ethers.BigNumber.from(value);
+                                }
+                            } 
+                            else if (paramType === 'address') {
+                                // 处理地址类型
+                                if (!ethers.utils.isAddress(value)) {
+                                    throw new Error(`参数 ${i + 1} 不是有效的以太坊地址`);
+                                }
+                                convertedValue = value;
+                            }
+                            else if (paramType === 'bool') {
+                                // 处理布尔类型
+                                const lowerValue = value.toLowerCase();
+                                if (lowerValue !== 'true' && lowerValue !== 'false') {
+                                    throw new Error(`参数 ${i + 1} 必须是 true 或 false`);
+                                }
+                                convertedValue = lowerValue === 'true';
+                            }
+                            else if (paramType === 'string') {
+                                // 处理字符串类型
+                                convertedValue = value;
+                            }
+                            else if (paramType.includes('bytes')) {
+                                // 处理字节类型
+                                try {
+                                    // 检查输入是否已经是十六进制格式
+                                    if (!value.startsWith('0x')) {
+                                        // 如果是普通字符串，先转换为十六进制
+                                        const bytes = ethers.utils.toUtf8Bytes(value);
+                                        value = ethers.utils.hexlify(bytes);
+                                    }
+
+                                    if (paramType === 'bytes') {
+                                        // 动态长度字节
+                                        convertedValue = ethers.utils.arrayify(value);
+                                    } else {
+                                        // 固定长度字节 (bytes32 等)
+                                        const size = parseInt(paramType.replace('bytes', ''));
+                                        // 检查长度是否符合要求
+                                        const paddedValue = ethers.utils.hexZeroPad(value, size);
+                                        if (ethers.utils.arrayify(value).length > size) {
+                                            throw new Error(`输入字符串过长，超过${size}字节`);
+                                        }
+                                        convertedValue = paddedValue;
+                                    }
+                                } catch (error) {
+                                    throw new Error(`字节转换错误: ${error.message}`);
+                                }
+                            }
+                            else if (paramType.includes('[]')) {
+                                // 处理数组类型
+                                try {
+                                    const arrayValues = value.split(',').map(v => v.trim());
+                                    const baseType = paramType.replace('[]', '');
+                                    
+                                    // 递归处理数组中的每个元素
+                                    convertedValue = arrayValues.map(v => {
+                                        if (baseType.includes('int')) {
+                                            return ethers.BigNumber.from(v);
+                                        } else if (baseType === 'address') {
+                                            if (!ethers.utils.isAddress(v)) {
+                                                throw new Error('无效的地址格式');
+                                            }
+                                            return v;
+                                        } else if (baseType === 'bool') {
+                                            if (v.toLowerCase() !== 'true' && v.toLowerCase() !== 'false') {
+                                                throw new Error('无效的布尔值');
+                                            }
+                                            return v.toLowerCase() === 'true';
+                                        } else {
+                                            return v;
+                                        }
+                                    });
+                                } catch (error) {
+                                    throw new Error(`参数 ${i + 1} 数组格式错误: ${error.message}`);
+                                }
+                            }
+                            else {
+                                // 其他类型直接使用原值
+                                convertedValue = value;
+                            }
+
+                            inputs.push(convertedValue);
+                        } catch (error) {
+                            throw new Error(`参数 ${i + 1} (${paramType}) 转换错误: ${error.message}`);
+                        }
+                    }
                 }
 
+                console.log(`调用函数 ${func.name} 的参数:`, inputs);
+
+                // 调用合约函数
                 let result;
                 if (type === 'read') {
                     result = await contract[func.name](...inputs);
                 } else {
                     const tx = await contract[func.name](...inputs);
+                    resultArea.innerHTML = `
+                        <div class="result-content">
+                            <div class="result-header">交易已提交</div>
+                            <pre class="result-data">交易哈希: ${tx.hash}\n等待确认中...</pre>
+                        </div>
+                    `;
                     result = await tx.wait();
                 }
 
@@ -938,13 +1055,18 @@
             }
         }
 
-        // 格式化并显示结果
+        // 添加辅助函数用于格式化结果
         function formatResult(result) {
             try {
                 if (ethers.BigNumber.isBigNumber(result)) {
                     return result.toString();
                 } else if (Array.isArray(result)) {
-                    return JSON.stringify(result, null, 2);
+                    return JSON.stringify(result.map(item => {
+                        if (ethers.BigNumber.isBigNumber(item)) {
+                            return item.toString();
+                        }
+                        return item;
+                    }), null, 2);
                 } else if (typeof result === 'object' && result !== null) {
                     return JSON.stringify(result, (key, value) => {
                         if (value && ethers.BigNumber.isBigNumber(value)) {
